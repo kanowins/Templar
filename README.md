@@ -10,7 +10,7 @@ This repository gathers our core lightweight libraries to build modern web apps 
 - [**TemplarRoute**](doc/templar_route.md)  
   File‑based router to render HTML views inside an SPA, supporting transitions, sub‑routes, async `resolve()` for data loading, and history control.
 
-- [**<loc-text> i18n**](doc/loctext.md)  
+- [**loc-text**](doc/loctext.md)  
   Custom element for inline translations using `.properties` files, with parameter support, formatting pipes, and graceful fallbacks.
 
 ## 🚀 Getting Started
@@ -20,7 +20,7 @@ This repository gathers our core lightweight libraries to build modern web apps 
 3. Combine all three for a full stack:
    - **Templar/Forge** for views and components.  
    - **TemplarRoute** for SPA navigation.  
-   - **<loc-text>** for internationalization.
+   - **loc-text** for internationalization.
 
 ---
 
