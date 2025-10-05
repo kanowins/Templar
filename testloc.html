@@ -1,0 +1,28 @@
+<html>
+
+<head>
+    <meta name="description" content="Sumalab - Gamedev indie studio">
+    <meta name="author" content="Sumalab" />
+    <meta name="google-site-verification" content="Kr99rbN-wNu_3BXXZWvmtX5aOt5E2vegng0irwT9owg" />
+    <meta http-equiv="Content-Type" content="text/html; charset=utf-8" />
+    <meta http-equiv="X-UA-Compatible" content="IE=edge,chrome=1">
+    <meta name="viewport" content="width=device-width, initial-scale=1.0, user-scalable=no">
+    <meta http-equiv="Cache-Control" content="no-cache, no-store, must-revalidate">
+    <meta http-equiv="Pragma" content="no-cache">
+    <meta http-equiv="Expires" content="0">
+
+    <link rel="shortcut icon" href="images/sumalab_logo.png">
+    <link rel="stylesheet" type="text/css" href="css/fonts/fonts.css?v=1">
+    <link rel="stylesheet" type="text/css" href="css/styles.css?v=1" />
+
+    <script src="./js/loctext.js?v=1"></script>
+
+    <script>
+        loc.setBasePath("./localization/");   // buscará /i18n/es.properties
+        loc.setLanguage("en");
+    </script>
+</head>
+<body>
+    <loc-text key="loctest" params='{"price": 1234.5}'>Hola {price|number({"minimumFractionDigits":2})}!</loc-text>
+</body>
+</html>

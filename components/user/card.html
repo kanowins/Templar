@@ -1,0 +1,32 @@
+
+
+<style>
+:host{ display:inline-block; font:14px/1.4 system-ui, Arial; }
+.card{ border:1px solid #ddd; border-radius:12px; padding:12px 14px; box-shadow:0 1px 4px rgb(0 0 0 / 6%); }
+.name{ font-weight:700; } .role{ opacity:.7; }
+button{ margin-top:8px; }
+</style>
+
+<%
+  console.log("card data: ", data);
+%>
+
+
+<div class="card">
+  <div class="name">👤 ${ name || '—' }</div>
+  <div class="role">${ role || 'unknown' }</div>
+  <div>${ data.other || 'NO OTHER PARAM' }</div>
+  <templar-user-badge data='<%= JSON.stringify(data.badge || { text:"VIEW", tone:"info" }) %>'  other="param"></templar-user-badge>
+  <button id="pick">Select</button>
+</div>
+
+<%
+  ready(() => {
+    const n = $('.name');
+    if (n) n.title = `Usuario: ${name||'—'}`;
+  });
+
+  bind('click', '#pick', () => {
+    emit('user-card:select', { name, role });
+  });
+%>

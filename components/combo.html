@@ -1,0 +1,23 @@
+<style>
+:host{ display:inline-block; }
+select{ padding:.25rem .5rem; }
+</style>
+
+<select id="sel">
+  <% for (let i=0; i<(items?.length||0); i++) { %>
+    <option value="<%= items[i] %>"><%= items[i] %></option>
+  <% } %>
+</select>
+
+<%
+  bind('change', '#sel', (e) => {
+    const sel = e.target;
+    emit('combo:change', { index: sel.selectedIndex, value: sel.value });
+  });
+
+  ready(() => {
+    // Ejemplo de manipulación post-render
+    const s = $('#sel');
+    if (s && typeof selectedIndex === 'number') s.selectedIndex = selectedIndex;
+  });
+%>

@@ -1,0 +1,16 @@
+<style>
+  :host{ display:block; padding:8px; background:#fff; border:1px solid #e5e7eb; border-radius:10px }
+  .row{ margin:6px 0 }
+</style>
+
+<div>
+  <div class="row"><strong>Login</strong> (mode: <%= mode || 'password' %>)</div>
+  <div class="row"><input id="u" placeholder="user"></div>
+  <div class="row"><input id="p" type="password" placeholder="password"></div>
+  <div class="row"><button id="go">Sign in</button></div>
+</div>
+
+<%
+  bind('click', '#go', () => emit('login:submit', { user: 'demo' }));
+  ready(() => $('#u')?.focus());
+%>

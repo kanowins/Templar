@@ -1,0 +1,10 @@
+<h2>Home</h2>
+<p class="muted">Esta vista se cargó por convención: <code>/views/index.html</code></p>
+<ul>
+  <li>Params fusionados (path+query) siempre disponibles: <code><%= JSON.stringify(params) %></code></li>
+  <li>Info de ruta: <code><%= JSON.stringify(route) %></code></li>
+</ul>
+
+<%
+  ready(() => console.log('Home ready()', { params, route }));
+%>

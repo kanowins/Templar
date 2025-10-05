@@ -1,0 +1,96 @@
+<!doctype html>
+<html lang="es">
+<meta charset="utf-8" />
+<meta name="viewport" content="width=device-width, initial-scale=1" />
+<title>Templar Forge — Demo</title>
+<style>
+  body { font: 14px/1.5 system-ui, Arial; margin: 24px; }
+  header { display:flex; align-items:center; gap:12px; margin-bottom:16px; }
+  code { background:#f6f8fa; padding:.2em .35em; border-radius:6px; }
+  .log { margin-top: 20px; padding: 10px; border: 1px solid #e5e7eb; border-radius: 8px; background: #fafafa; }
+</style>
+    <script type="module" src="./js/templar-forge.1.0.js"></script>
+<header>
+  <h1>Templar Forge — Demo</h1>
+  <span>(auto-registro, plantillas, eventos, ready/query/bind)</span>
+</header>
+
+<!-- Componentes directamente en el DOM (light DOM) -->
+<section>
+  <h2>1) Componentes simples</h2>
+  <templar-user-card name="Iria" role="Designer"></templar-user-card>
+  <templar-user-card data='{"name":"Marco","role":"Engineer"}'></templar-user-card>
+</section>
+
+<section>
+  <h2>2) Componente con eventos (combo)</h2>
+  <templar-combo data='{"items":["Uno","Dos","Tres"]}'></templar-combo>
+  <p>Selecciona algo y mira la consola o el log.</p>
+</section>
+
+<section>
+  <h2>3) Anidado (dashboard → user-card + badge + combo)</h2>
+  <templar-dashboard
+    data='{
+      "user": {"name": "Dana","role": "Lead"},
+      "badge": {"text": "PRO", "tone": "success"},
+      "combo": {"items": ["A","B","C"]}
+    }'>
+  </templar-dashboard>
+</section>
+
+<section>
+  <h2>3) Componente sin data</h2>
+  <templar-dashboard2 id="dash"></templar-dashboard2>
+  <script>
+    document.getElementById("dash").data = {
+      "user": {"name": "Dana","role": "Lead"},
+      "badge": {"text": "PRO", "tone": "success"},
+      "combo": {"items": ["A","B","C"]}
+    };
+  </script>
+</section>
+
+<section class="log">
+  <strong>Log</strong>
+  <div id="log"></div>
+</section>
+
+<script type="module">
+  
+
+  // Arrancamos auto-registro con configuración inline (KISS)
+  TemplarForge.start({
+    /*basePath: "/suma/components/",*/
+    extension: ".html",
+    tagPrefix: "templar-",
+    shadowMode: "open",
+    nestedDirs: true,
+    debug: true
+  });
+
+  // Delegación global de eventos para verlos
+  const log = document.getElementById("log");
+  function append(msg) {
+    const p = document.createElement("div");
+    p.textContent = msg;
+    log.appendChild(p);
+    console.log(msg);
+  }
+
+  document.addEventListener("combo:change", (ev) => {
+    append(`combo:change → index=${ev.detail.index}, value=${ev.detail.value}`);
+  });
+
+  document.addEventListener("user-card:select", (ev) => {
+    append(`user-card:select → ${JSON.stringify(ev.detail)}`);
+  });
+
+  // Test upgradeProperty: asignamos .data antes de que el custom element se defina
+  const late = document.createElement("templar-user-card");
+  late.id = "late";
+  late.data = { name: "PreUpgrade", role: "Happens" }; // asignación temprana
+  document.body.appendChild(late);
+</script>
+</html>
+

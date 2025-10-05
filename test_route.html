@@ -1,0 +1,120 @@
+<!doctype html>
+<html lang="en">
+<head>
+  <meta charset="utf-8" />
+  <title>TemplarRoute Test</title>
+  <meta name="viewport" content="width=device-width, initial-scale=1" />
+  <!-- Opcional: si quieres forzar la base explícitamente
+  <base href="/suma/">
+  -->
+  <style>
+    body{font:15px/1.5 system-ui,Arial;margin:0;background:#f6f8fa;color:#0f172a}
+    header{display:flex;gap:12px;align-items:center;padding:12px 16px;background:#0f172a;color:#e6edf3;position:sticky;top:0}
+    nav a{color:#cfe1f1;text-decoration:none;margin-right:10px}
+    nav a:hover{text-decoration:underline}
+    #wrap{max-width:980px;margin:16px auto;padding:12px}
+    .grid{display:grid;grid-template-columns:2fr 1fr;gap:12px}
+    .panel{background:#fff;border:1px solid #e5e7eb;border-radius:10px;padding:12px}
+    .muted{opacity:.7}
+    /* Transiciones demo */
+    .route-fade-out{opacity:1;transition:opacity .12s ease}
+    .route-fade-out{opacity:0}
+    .route-fade-in{opacity:0}
+    .route-fade-in{opacity:1;transition:opacity .15s ease}
+  </style>
+</head>
+<body>
+  <header>
+    <strong>TemplarRoute · Test</strong>
+    <nav>
+      <a href="/">Home</a>
+      <a href="about">About</a>
+      <a href="user/42?tab=posts">User 42 (tab=posts)</a>
+      <a href="settings">Settings (in shell)</a>
+      <a href="no-existe">404</a>
+    </nav>
+  </header>
+
+  <div id="wrap" class="grid">
+    <div class="panel">
+      <h3>Main View Root</h3>
+      <div id="view"></div>
+      <div class="muted">Las vistas por convención se renderizan aquí.</div>
+    </div>
+
+    <div class="panel">
+      <h3>Shell Component (shadow outlet)</h3>
+      <templar-shell id="shell"></templar-shell>
+      <div class="muted">La ruta <code>/settings</code> se monta dentro del <code>#outlet</code> del shell.</div>
+      <hr />
+      <button id="goUser">go /user/7?tab=info</button>
+      <button id="goReplace">replace /about</button>
+      <button id="goNone">go /user/9?modal=1 (history: none)</button>
+    </div>
+  </div>
+
+  <script type="module">
+    import TemplarForge from './js/templar-forge.1.0.js';
+    import TemplarRoute from './js/templar-route.1.0.js';
+
+    // Auto-registro de <templar-*>. basePath relativo → portable en subcarpetas
+    TemplarForge.start({
+      basePath: './components/',      // relativo a appBase autodetectado
+      extension: '.html',
+      tagPrefix: 'templar-',
+      debug: false
+    });
+
+    // Arranque del router: convención + transición global
+    TemplarRoute.start({
+      root: () => document.querySelector('#view'),
+      basePath: './views/',           // relativo a appBase (coherente con Forge)
+      extension: '.html',
+      // wildcard por defecto: ./views/404.html
+      transition: 'fade',
+      transitions: {
+        fade: {
+          out: async ({ root }) => { root.classList.add('route-fade-out'); await new Promise(r=>setTimeout(r,120)); root.classList.remove('route-fade-out'); },
+          in:  async ({ root }) => { root.classList.add('route-fade-in');  await new Promise(r=>setTimeout(r,150)); root.classList.remove('route-fade-in'); }
+        }
+      },
+      debug: true
+    });
+
+    // Declaración de rutas incrementales (solo si necesitas resolver datos o roots especiales)
+    TemplarRoute.use([
+      // Ruta con params fusionados (path + query) → resolve recibe un único objeto
+      {
+        path: '/user/:id',
+        view: (ctx) => TemplarRoute._config.basePath + 'users/profile.html', // ejemplo de resolver de vista por función
+        resolve: async (params) => {
+          // Simula fetch
+          const user = await new Promise(r => setTimeout(()=>r({
+            id: params.id, name: params.id === '42' ? 'Dana' : 'Alex', role: 'Member', tab: params.tab || 'overview'
+          }), 100));
+          // Si ?modal=1 → no tocar histórico
+          return {
+            data: { user },
+            title: `User · ${user.name}`,
+            history: params.modal ? 'none' : 'push'
+          };
+        }
+      },
+
+      // Montar en un root distinto (outlet del shell)
+      {
+        path: '/settings',
+        view: './views/settings.html',
+        root: () => document.querySelector('#shell')?.shadowRoot?.querySelector('#outlet'),
+        resolve: (params) => ({ data: { section: params.section || 'general' }, url: '/settings' })
+      }
+    ]);
+
+    // Botones de navegación imperativa
+    const $ = (s) => document.querySelector(s);
+    $('#goUser')    .addEventListener('click', () => TemplarRoute.go('user/7?tab=info'));
+    $('#goReplace') .addEventListener('click', () => TemplarRoute.go('about', { history: 'replace' }));
+    $('#goNone')    .addEventListener('click', () => TemplarRoute.go('user/9?modal=1', { history: 'none' }));
+  </script>
+</body>
+</html>

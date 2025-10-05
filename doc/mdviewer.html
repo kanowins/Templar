@@ -1,0 +1,245 @@
+<!DOCTYPE html>
+<html lang="es">
+<head>
+  <meta charset="UTF-8">
+  <meta name="viewport" content="width=device-width, initial-scale=1.0">
+  <title>Markdown Viewer</title>
+
+  <script src="marked.min.js"></script>
+
+  <style>
+    body {
+      font-family: system-ui, -apple-system, BlinkMacSystemFont, "Segoe UI", Roboto, "Helvetica Neue", Arial, sans-serif;
+      background: #f5f7fa;
+      color: #333;
+      margin: 0;
+      padding: 2rem;
+      line-height: 1.6;
+    }
+
+    #content {
+      max-width: 900px;
+      margin: 0 auto;
+      background: #fff;
+      padding: 2rem 3rem;
+      border-radius: 8px;
+      box-shadow: 0 4px 12px rgba(0,0,0,0.08);
+    }
+
+    h1, h2, h3, h4, h5, h6 {
+      font-weight: 600;
+      line-height: 1.3;
+      margin-top: 2rem;
+      margin-bottom: 1rem;
+      color: #2c3e50;
+    }
+
+    h1 {
+      font-size: 2.2rem;
+      border-bottom: 2px solid #eee;
+      padding-bottom: 0.3rem;
+    }
+
+    h2 {
+      font-size: 1.8rem;
+      border-bottom: 1px solid #eee;
+      padding-bottom: 0.2rem;
+    }
+
+    p {
+      margin-bottom: 1rem;
+    }
+
+    a {
+      color: #0077cc;
+      text-decoration: none;
+    }
+    a:hover {
+      text-decoration: underline;
+    }
+
+    ul, ol {
+      padding-left: 2rem;
+      margin-bottom: 1rem;
+    }
+
+    blockquote {
+      border-left: 4px solid #0077cc;
+      background: #f0f6fa;
+      padding: 0.5rem 1rem;
+      margin: 1rem 0;
+      color: #555;
+      border-radius: 4px;
+    }
+
+    pre {
+      background: #272822;
+      color: #f8f8f2;
+      padding: 1rem;
+      overflow-x: auto;
+      border-radius: 6px;
+      margin-bottom: 1.2rem;
+    }
+
+    code {
+      background: #f0f0f0;
+      color: #c7254e;
+      padding: 0.15rem 0.3rem;
+      border-radius: 4px;
+      font-family: "Fira Code", monospace;
+      font-size: 0.95rem;
+    }
+
+    pre code {
+      background: none;
+      color: inherit;
+      padding: 0;
+      font-size: 0.95rem;
+    }
+
+    table {
+      border-collapse: collapse;
+      width: 100%;
+      margin-bottom: 1rem;
+      font-size: 0.95rem;
+    }
+
+    table th, table td {
+      border: 1px solid #ddd;
+      padding: 0.6rem 0.8rem;
+      text-align: left;
+    }
+
+    table th {
+      background: #f5f5f5;
+      font-weight: 600;
+    }
+
+    img {
+      max-width: 100%;
+      display: block;
+      margin: 1rem auto;
+      border-radius: 4px;
+    }
+  </style>
+</head>
+<body>
+
+  <div id="content">Cargando contenido...</div>
+
+<style>
+  html { scroll-behavior: smooth; }
+  /* Si tienes header fijo, ajusta el offset visual del ancla: */
+  #content h1, #content h2, #content h3, #content h4, #content h5, #content h6 {
+    scroll-margin-top: 80px;
+  }
+</style>
+<script>
+  // Opcional: por si tu versión de marked ignora headerIds
+  if (marked.setOptions) marked.setOptions({ gfm: true, headerIds: true, mangle: false });
+
+  const params = new URLSearchParams(location.search);
+  let raw = params.get('md');
+
+  // Si no hay parámetro md => no hacemos nada
+  if (!raw) {
+    showError('No se especificó ningún archivo Markdown (?md=...)');
+  }
+
+  // Quitar espacios
+  raw = raw.trim();
+
+  // Rechazar URLs absolutas (solo queremos relativas)
+  if (/^[a-z]+:\/\//i.test(raw)) {
+    showError('El parámetro "md" no puede ser una URL absoluta.');
+  }
+
+  // Añadir extensión si falta
+  if (!/\.(md|markdown|mdx)$/i.test(raw)) raw += '.md';
+
+  // Normalizar ../ para impedir escapar del directorio del HTML
+  const baseUrl = new URL('./', location.href);          // directorio del html
+  let fileUrl;
+  try {
+    fileUrl = new URL(raw, baseUrl);
+  } catch {
+    showError('Ruta inválida.');
+  }
+
+  // Seguridad: solo dentro del mismo directorio (o subcarpetas)
+  if (fileUrl.origin !== location.origin ||
+      !fileUrl.pathname.startsWith(baseUrl.pathname)) {
+    showError('No se puede acceder a esa ruta.');
+  }
+
+    function showError(msg) {
+    document.getElementById('content').textContent = msg;
+    throw new Error(msg);
+  }
+
+
+  fetch(fileUrl.href)
+    .then(res => res.text())
+    .then(md => {
+      const content = document.getElementById('content');
+      content.innerHTML = marked.parse(md);
+
+      ensureHeadingIds(content);        // 1) crea IDs en h1..h6 si faltan
+      wireInternalLinks(content);       // 2) scroll suave y fallback si no existe el id
+    })
+    .catch(() => {
+      document.getElementById('content').textContent = 'No se pudo cargar el archivo Markdown.';
+    });
+
+  function ensureHeadingIds(scope) {
+    const used = new Set();
+    scope.querySelectorAll('h1,h2,h3,h4,h5,h6').forEach(h => {
+      if (!h.id) {
+        let base = slugify(h.textContent) || 'section';
+        let id = base, n = 2;
+        while (used.has(id) || document.getElementById(id)) id = `${base}-${n++}`;
+        h.id = id;
+        used.add(id);
+      }
+    });
+  }
+
+  function wireInternalLinks(scope) {
+    scope.addEventListener('click', (e) => {
+      const a = e.target.closest('a[href^="#"]');
+      if (!a) return;
+      const hash = a.getAttribute('href');
+      if (hash === '#') return; // ignorar #
+      const id = decodeURIComponent(hash.slice(1));
+      let target = document.getElementById(id);
+
+      // Fallback: si el id no existe, intenta emparejar por texto normalizado
+      if (!target) {
+        const linkText = normalize(a.textContent);
+        target = Array.from(scope.querySelectorAll('h1,h2,h3,h4,h5,h6'))
+          .find(h => normalize(h.textContent) === linkText);
+        if (target && !target.id) target.id = slugify(target.textContent);
+      }
+
+      if (target) {
+        e.preventDefault();
+        target.scrollIntoView({ behavior: 'smooth', block: 'start' });
+        history.replaceState(null, '', '#' + target.id);
+      }
+    });
+  }
+
+  // Slug consistente (quita acentos, emojis, símbolos; minúsculas; espacios→-)
+  function slugify(str) {
+    return (str || '')
+      .toLowerCase()
+      .normalize('NFD').replace(/[\u0300-\u036f]/g, '')        // acentos
+      .replace(/[\u{1F300}-\u{1FAFF}\u{1F1E6}-\u{1F1FF}]/gu, '') // emojis/banderas
+      .replace(/[^\w\s-]/g, '')                                // símbolos
+      .trim()
+      .replace(/\s+/g, '-');
+  }
+  function normalize(str) { return slugify(str).replace(/-/g, ''); }
+</script>
+</body>
+</html>

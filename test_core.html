@@ -1,0 +1,28 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+  <meta charset="UTF-8" />
+  <title>Templar Core Basic Example</title>
+  <script type="module">
+    import Templar from './js/templar-core.1.0.js';
+
+    window.addEventListener('DOMContentLoaded', async () => {
+      // 1) Find the container
+      const container = document.getElementById('app');
+
+      // 2) Render the template into the container
+      await Templar.renderInto(
+        './templates/hello.html',          // path to the template
+        { name: 'Alice', age: 23 },        // data passed to the template
+        container                          // container element
+      );
+
+      console.log('✅ Template rendered successfully');
+    });
+  </script>
+</head>
+<body>
+  <h1>Templar Core Demo</h1>
+  <div id="app"></div>
+</body>
+</html>

@@ -1,0 +1,40 @@
+<style>
+.container{ border:1px dashed #ccc; padding:12px; border-radius:12px; }
+.row{ display:flex; gap:12px; align-items:center; flex-wrap: wrap; }
+h3{ margin:.25rem 0; }
+.note{ font-size:.85rem; opacity:.7; }
+</style>
+
+<div class="container">
+  <h3>Dashboard</h3>
+  <div class="row">
+    <templar-user-card other="other param"></templar-user-card>
+  </div>
+  <p id="status" class="note">Esperando interacción…</p>
+</div>
+
+<%
+console.log(data);
+  // Post-render: tocar un nodo
+  ready(() => {
+    
+    console.log(data);
+    const s = $('#status');
+    if (s) s.textContent = 'Renderizado ✅ (dashboard)';
+
+    console.log("data: ", data);
+
+    let card = query(".templar-user-card");
+    console.log("card: ", card);
+
+    query(".templar-user-card").data=data.user;
+
+    console.log("data2");
+  });
+
+  // Escuchar cambios del combo hijo mediante delegación local
+  bind('combo:change', 'templar-combo', (ev) => {
+    const s = $('#status');
+    if (s) s.textContent = `Combo → ${ev.detail.value} (#${ev.detail.index})`;
+  });
+%>

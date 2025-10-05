@@ -1,0 +1,30 @@
+<style>
+.container{ border:1px dashed #ccc; padding:12px; border-radius:12px; }
+.row{ display:flex; gap:12px; align-items:center; flex-wrap: wrap; }
+h3{ margin:.25rem 0; }
+.note{ font-size:.85rem; opacity:.7; }
+</style>
+
+<div class="container">
+  <h3>Dashboard</h3>
+  <div class="row">
+    <templar-user-card data='<%= JSON.stringify(user||{}) %>'></templar-user-card>
+    <templar-user-badge data='<%= JSON.stringify(badge||{}) %>'></templar-user-badge>
+    <templar-combo data='<%= JSON.stringify(combo||{}) %>'></templar-combo>
+  </div>
+  <p id="status" class="note">Esperando interacción…</p>
+</div>
+
+<%
+  // Post-render: tocar un nodo
+  ready(() => {
+    const s = $('#status');
+    if (s) s.textContent = 'Renderizado ✅ (dashboard)';
+  });
+
+  // Escuchar cambios del combo hijo mediante delegación local
+  bind('combo:change', 'templar-combo', (ev) => {
+    const s = $('#status');
+    if (s) s.textContent = `Combo → ${ev.detail.value} (#${ev.detail.index})`;
+  });
+%>
