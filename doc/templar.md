@@ -199,7 +199,7 @@ Create a template file matching your tag name and just use the tag.
 <button id="btn">Click</button>
 
 <%
-  ready(() => { queryById("status").style.color = "green"; });
+  ready(() => { $("#status").style.color = "green"; });
 
   bind("click", "#btn", () => {
     emit("templar-test:clicked", { value: 123 });
@@ -430,7 +430,7 @@ Thanks to TemplarForge’s architecture, the child **renders only once** — whe
 
 <%
   ready(() => {    
-    const child = query('templar-user-card');
+    const child = $('templar-user-card');
     if (child) child.data = user; // triggers re-render in the child
   });
 %>
