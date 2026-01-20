@@ -58,6 +58,7 @@ export class BaseElement extends HTMLElement {
   }
 
   connectedCallback() {
+    this._disposed = false;
     this._upgradeProperty("data");
 
     // Seed inicial desde TODOS los atributos actuales
@@ -84,6 +85,7 @@ export class BaseElement extends HTMLElement {
   disconnectedCallback() {
     this._disposed = true;
     if (this._raf) cancelAnimationFrame(this._raf);
+    this._raf = 0;
     if (this._addedListeners) {
       for (const { el, type, fn } of this._addedListeners) el.removeEventListener(type, fn);
       this._addedListeners = null;
@@ -206,7 +208,7 @@ export const TemplarForge = (() => {
     // 1) <base href> si existe
     const baseEl = document.querySelector('base[href]');
     if (baseEl) {
-      try { return new URL(baseEl.getAttribute('href'), location.origin).href; } catch {}
+      try { return new URL(baseEl.getAttribute('href'), location.origin).href; } catch { }
     }
     // 2) directorio del documento actual (e.g. /suma/)
     const p = location.pathname;
