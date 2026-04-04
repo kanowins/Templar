@@ -58,7 +58,6 @@ export class BaseElement extends HTMLElement {
   }
 
   connectedCallback() {
-    this._disposed = false;
     this._upgradeProperty("data");
 
     // Seed inicial desde TODOS los atributos actuales
@@ -79,57 +78,15 @@ export class BaseElement extends HTMLElement {
       }
     }
 
-    this._setupShadowObserver();
     this._scheduleRender();
   }
 
   disconnectedCallback() {
     this._disposed = true;
     if (this._raf) cancelAnimationFrame(this._raf);
-    this._raf = 0;
     if (this._addedListeners) {
       for (const { el, type, fn } of this._addedListeners) el.removeEventListener(type, fn);
       this._addedListeners = null;
-    }
-    if (this._shadowMo) {
-      this._shadowMo.disconnect();
-      this._shadowMo = null;
-    }
-  }
-
-  _setupShadowObserver() {
-    if (this._shadowMo) return;
-    if (!window.TemplarForge) return;
-
-    // Observador local para el ShadowRoot
-    this._shadowMo = new MutationObserver((mutations) => {
-      if (!window.TemplarForge) return;
-
-      // Acceso a config y ensureDefined a traves del global
-      const tagPrefix = window.TemplarForge._config ? window.TemplarForge._config.tagPrefix.toUpperCase() : 'TEMPLAR-';
-
-      for (const m of mutations) {
-        m.addedNodes.forEach((node) => {
-          if (node.nodeType !== 1) return;
-          const el = /** @type {Element} */ (node);
-          const tag = el.tagName;
-
-          if (tag.startsWith(tagPrefix)) {
-            window.TemplarForge.ensureDefined(tag.toLowerCase());
-          }
-
-          // Deep scan de lo insertado
-          if (window.TemplarForge._scanForTemplarInShadow) {
-            window.TemplarForge._scanForTemplarInShadow(el); // Escana sub-arbol
-          }
-        });
-      }
-    });
-
-    try {
-      this._shadowMo.observe(this.shadowRoot, { childList: true, subtree: true });
-    } catch (e) {
-      console.warn('[TemplarForge] No se pudo observar shadowRoot (quizas cerrado?):', e);
     }
   }
 
@@ -249,7 +206,7 @@ export const TemplarForge = (() => {
     // 1) <base href> si existe
     const baseEl = document.querySelector('base[href]');
     if (baseEl) {
-      try { return new URL(baseEl.getAttribute('href'), location.origin).href; } catch { }
+      try { return new URL(baseEl.getAttribute('href'), location.origin).href; } catch {}
     }
     // 2) directorio del documento actual (e.g. /suma/)
     const p = location.pathname;
