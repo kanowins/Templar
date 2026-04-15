@@ -299,10 +299,10 @@ Inside the template, both `<%= name %>` and `<%= data.badge.text %>` work.
   <% ready(() => { $("#go").focus(); }); %>
   ```
 
-  - **`destroy()`** — called right after HTML component is destroyed.
+- **`destroy()`** — called right after HTML component is destroyed.
 
   ```html
-  <% ready(() => { $("#go").focus(); }); %>
+  <% destroy(() => { console.log("HTML component destroyed") }); %>
   ```
 
 
