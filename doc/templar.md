@@ -293,11 +293,18 @@ Inside the template, both `<%= name %>` and `<%= data.badge.text %>` work.
   });
   ```
 
-- **`ready(cb)`** — run `cb` right after HTML is injected into the `shadowRoot` for that render cycle.
+- **`ready()`** — called right after HTML is injected into the `shadowRoot` for that render cycle.
 
   ```html
   <% ready(() => { $("#go").focus(); }); %>
   ```
+
+  - **`destroy()`** — called right after HTML component is destroyed.
+
+  ```html
+  <% ready(() => { $("#go").focus(); }); %>
+  ```
+
 
 - **`$(selector)`** — `shadowRoot.querySelector`  
 - **`$$(selector)`** — `shadowRoot.querySelectorAll` (returned as array)  

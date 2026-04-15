@@ -16,6 +16,7 @@ export class BaseElement extends HTMLElement {
     this._raf = 0;
     this._bindQueue = [];
     this._addedListeners = null;
+    this._destroyCallbacks = [];
   }
 
   // -- upgradeProperty pattern --
@@ -84,6 +85,13 @@ export class BaseElement extends HTMLElement {
   disconnectedCallback() {
     this._disposed = true;
     if (this._raf) cancelAnimationFrame(this._raf);
+    // Ejecutar destroy callbacks registrados en el template
+    if (this._destroyCallbacks && this._destroyCallbacks.length) {
+      for (const cb of this._destroyCallbacks) {
+        try { cb(); } catch (e) { console.error('[TemplarForge] destroy() callback error:', e); }
+      }
+      this._destroyCallbacks = [];
+    }
     if (this._addedListeners) {
       for (const { el, type, fn } of this._addedListeners) el.removeEventListener(type, fn);
       this._addedListeners = null;
@@ -126,7 +134,12 @@ export class BaseElement extends HTMLElement {
       bind
     };
 
-    await Templar.renderInto(tplUrl, scoped, this.shadowRoot);
+    const result = await Templar.renderInto(tplUrl, scoped, this.shadowRoot);
+
+    // Almacenar destroy callbacks para disconnectedCallback
+    if (result && result.destroyCallbacks) {
+      this._destroyCallbacks = result.destroyCallbacks;
+    }
 
     // Aplica binds post-render
     this._applyBinds();

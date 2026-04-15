@@ -73,6 +73,7 @@ const Templar = (() => {
   const __TPL_URL__ = ${JSON.stringify(url)};
   // NEW: helpers en scope (definidos vía __hooks)
   const ready = (cb) => { if (typeof cb === 'function') __hooks.r.push(cb); };
+  const destroy = (cb) => { if (typeof cb === 'function') __hooks.d.push(cb); };
   const $  = (sel) => __hooks.q(sel);
   const $$ = (sel) => __hooks.qa(sel);
   try {
@@ -140,6 +141,7 @@ const Templar = (() => {
     // NEW: cola de ready + selectores $ y $$ ligados al root
     const hooks = {
       r: [],                                           // ready callbacks
+      d: [],                                           // destroy callbacks
       q: (sel) => root?.querySelector(sel) || null,    // $
       qa: (sel) => root ? Array.from(root.querySelectorAll(sel)) : [] // $$
     };
@@ -154,7 +156,7 @@ const Templar = (() => {
           try { cb(); } catch (e) { console.error('[Templar] ready() callback error:', e); }
         }
       }
-      return html;
+      return { html, destroyCallbacks: hooks.d };
     } catch (err) {
       const line = err && err.__tplLine;
       if (line) {
