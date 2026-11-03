@@ -59,6 +59,7 @@ export class BaseElement extends HTMLElement {
   }
 
   connectedCallback() {
+    window.loc?.observe(this.shadowRoot);
     this._upgradeProperty("data");
 
     // Seed inicial desde TODOS los atributos actuales
@@ -83,6 +84,7 @@ export class BaseElement extends HTMLElement {
   }
 
   disconnectedCallback() {
+    window.loc?.unobserve(this.shadowRoot);
     this._disposed = true;
     if (this._raf) cancelAnimationFrame(this._raf);
     // Ejecutar destroy callbacks registrados en el template

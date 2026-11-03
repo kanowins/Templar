@@ -13,11 +13,11 @@
 
   const normalizePath = (p) => (!p ? "" : (p.endsWith("/") ? p : p + "/"));
 
-  const safeParseJSON = (s) => {
+  const safeParseJSON = (s, warn = true) => {
     if (typeof s !== "string") return null;
     try { return JSON.parse(s); } catch 
     { 
-      console.warn("[loc] JSON inválido:", s);
+      if (warn) console.warn("[loc] JSON inválido:", s);
       return null; 
     }
   };
@@ -384,7 +384,7 @@
     const params = {};
 
     // 1) params JSON
-    const json = safeParseJSON(el.getAttribute("params"));
+    const json = safeParseJSON(el.getAttribute("loc-params") ?? el.getAttribute("params"));
     if (json && typeof json === "object") Object.assign(params, json);
 
     // 2) p-* (más prioridad que data-*)
@@ -397,12 +397,17 @@
 
     // 3) data-*
     for (const attr of el.attributes) {
-      if (attr.name.startsWith("data-")) {
+      if (attr.name.startsWith("data-") && !el.hasAttribute("loc-" + attr.name)) {
         const key = attr.name.slice(5);
         if (!(key in params)) params[key] = coerceType(attr.value);
       }
     }
 
+    const rawParams = {...params};
+    for (const attribute of el.attributes) if (attribute.name.startsWith('loc-p-')) {
+      const name = attribute.name.slice(6);
+      params[name] = resolveTextFor(el, attribute.value, String(rawParams[name] ?? ''), rawParams, gatherFormats(el));
+    }
     return params;
 
     function coerceType(v) {
@@ -410,13 +415,13 @@
       if (v === "false") return false;
       if (v !== "" && !isNaN(v)) return Number(v);
       // Intento de JSON (arrays/objetos simples)
-      const j = safeParseJSON(v);
+      const j = /^[\[{]/.test(v) ? safeParseJSON(v, false) : null;
       return j !== null ? j : v;
     }
   }
 
   function gatherFormats(el) {
-    const formats = safeParseJSON(el.getAttribute("formats"));
+    const formats = safeParseJSON(el.getAttribute("loc-formats") ?? el.getAttribute("formats"));
     // Debe ser objeto {"param": pipeline, "*": pipeline}
     return (formats && typeof formats === "object") ? formats : {};
   }
@@ -470,95 +475,99 @@
   // ──────────────────────────────────────────────────────────────
   // <loc-text> Custom Element
   // ──────────────────────────────────────────────────────────────
+  const textElements = new Set();
+  const observedRoots = new Map();
+  const attributeFallbacks = new WeakMap();
+  const textAttributes = new Set(['title','placeholder','alt','label','value','aria-label','aria-description','aria-valuetext']);
+  const isTextAttribute = name => textAttributes.has(name) || name.startsWith('data-');
+
+  /** Capture the author's original attribute once; never promote a translation to fallback. */
+  function updateAttributes(element) {
+    const bindings = attributeFallbacks.get(element) ?? new Map();
+    for (const [name, fallback] of bindings) if (!element.hasAttribute('loc-'+name)) {
+      if (fallback === null) element.removeAttribute(name); else element.setAttribute(name, fallback);
+      bindings.delete(name);
+    }
+    for (const attribute of [...element.attributes]) {
+      if (!attribute.name.startsWith('loc-')) continue;
+      const name = attribute.name.slice(4);
+      if (!isTextAttribute(name)) continue;
+      if (!bindings.has(name)) bindings.set(name, element.getAttribute(name));
+      const fallback = bindings.get(name);
+      const text = resolveTextFor(element, attribute.value, fallback ?? '', gatherParams(element), gatherFormats(element));
+      if (fallback === null && !text) element.removeAttribute(name);
+      else if (element.getAttribute(name) !== text) element.setAttribute(name, text);
+    }
+    if (bindings.size) attributeFallbacks.set(element, bindings);
+  }
+  function scan(node) {
+    if (node.nodeType === 1) {
+      updateAttributes(node);
+      if (node.shadowRoot) observe(node.shadowRoot);
+    }
+    for (const element of node.querySelectorAll?.('*') ?? []) {
+      updateAttributes(element);
+      if (element.shadowRoot) observe(element.shadowRoot);
+    }
+  }
+  /** Open roots are discovered automatically; register closed roots explicitly. */
+  function observe(root = document) {
+    if (observedRoots.has(root)) return;
+    if (root !== document && !(root instanceof ShadowRoot)) return;
+    const observer = new MutationObserver(records => {
+      for (const record of records) {
+        if (record.type === 'childList') for (const node of record.addedNodes) scan(node);
+        else {
+          const name = record.attributeName;
+          if (name.startsWith('loc-') || name === 'params' || name === 'formats' || name.startsWith('p-') || name.startsWith('data-') && !record.target.hasAttribute('loc-'+name)) updateAttributes(record.target);
+        }
+      }
+      for (const [target, watching] of observedRoots) if (target !== document && !target.host.isConnected) {
+        watching.disconnect(); observedRoots.delete(target);
+      }
+    });
+    observedRoots.set(root, observer);
+    observer.observe(root, {subtree:true, childList:true, attributes:true});
+    scan(root);
+  }
+  function unobserve(root) {
+    observedRoots.get(root)?.disconnect(); observedRoots.delete(root);
+  }
+
   class LocText extends HTMLElement {
     constructor() {
-      super();
-      this.__fallbackTemplate = null;
-      this.__ready = false;            // conectado + fallback capturado
-      this.__pendingUpdate = false;
-      this.__childObserver = null;
-      this.__attrObserver = null;
+      super(); this.__fallbackTemplate = null; this.__ready = false; this.__attrObserver = null;
     }
-
-    static get observedAttributes() { return ['key', 'params', 'formats']; }
-
     connectedCallback() {
-      if (this.__ready) return;
-
-      const tryCapture = () => {
-        // 1) intento inmediato
-        let t = (this.innerHTML || '').trim();
-        // 2) o usa atributo fallback explícito si lo has puesto
-        if (!t) {
-          const attrFallback = this.getAttribute('fallback');
-          if (attrFallback && attrFallback.trim()) t = attrFallback.trim();
-        }
-        if (t) {
-          this.__fallbackTemplate = t;
+      textElements.add(this);
+      observe(this.getRootNode());
+      // Wait for parser-created fallback children before capturing them.
+      queueMicrotask(() => {
+        if (!this.isConnected) return;
+        if (!this.__ready) {
+          this.__fallbackTemplate = this.getAttribute('fallback') ?? (this.hasAttribute('text') ? this.textContent : this.innerHTML).trim();
           this.__ready = true;
-          this.#startAttrObserver();
-          const run = this.__pendingUpdate; // evita doble update
-          this.__pendingUpdate = false;
-          this.update();                     // primera render
-          return true;
         }
-        return false;
-      };
-
-      if (!tryCapture()) {
-        // El contenido aún no está: espera a que aparezca
-        this.__childObserver = new MutationObserver(() => {
-          if (tryCapture()) {
-            this.__childObserver.disconnect();
-            this.__childObserver = null;
-          }
-        });
-        this.__childObserver.observe(this, { childList: true, subtree: true, characterData: true });
-      }
-    }
-
-    #startAttrObserver() {
-      if (this.__attrObserver) return;
-      this.__attrObserver = new MutationObserver((mutations) => {
-        for (const m of mutations) {
-          if (m.type === 'attributes') {
-            const n = m.attributeName || '';
-            if (n === 'key' || n === 'params' || n === 'formats' || n.startsWith('p-') || n.startsWith('data-')) {
-              this.update();
-              break;
-            }
-          }
+        if (!this.__attrObserver) {
+          this.__attrObserver = new MutationObserver(records => {
+            if (records.some(({attributeName:name}) => ['key','params','formats','loc-params','loc-formats','text'].includes(name) || name.startsWith('loc-p-') || name.startsWith('p-') || name.startsWith('data-'))) this.update();
+          });
+          this.__attrObserver.observe(this, {attributes:true});
         }
+        this.update();
       });
-      this.__attrObserver.observe(this, { attributes: true });
     }
-
-    attributeChangedCallback(name, oldVal, newVal) {
-      if (oldVal === newVal) return;
-      // AÚN no listo → marca pendiente y sal
-      if (!this.__ready) { this.__pendingUpdate = true; return; }
-      this.update();
-    }
-
     update() {
-      // Si entra por cualquier camino antes de estar listo, aplaza
-      if (!this.__ready) { this.__pendingUpdate = true; return; }
-
+      if (!this.__ready) return;
       const key = this.getAttribute('key') || '';
-      const params = gatherParams(this);       // tu helper
-      const formats = gatherFormats(this);     // tu helper
-      const fallback = this.__fallbackTemplate ?? '';
-      const text = resolveTextFor(this, key, fallback, params, formats); // tu helper
-      this.innerHTML = text;
-      this.dispatchEvent(new CustomEvent('loc:updated', { detail: { key, lang: window.loc?.getLanguage?.() } }));
+      const text = resolveTextFor(this, key, this.__fallbackTemplate ?? '', gatherParams(this), gatherFormats(this));
+      if (this.hasAttribute('text')) { if (this.textContent !== text) this.textContent = text; }
+      else if (this.innerHTML !== text) this.innerHTML = text;
+      this.dispatchEvent(new CustomEvent('loc:updated', {detail:{key,lang:state.currentLang}}));
     }
-
     disconnectedCallback() {
-      this.__attrObserver?.disconnect();
-      this.__attrObserver = null;
-      this.__childObserver?.disconnect();
-      this.__childObserver = null;
-      // Mantén __fallbackTemplate para si vuelve a conectarse
+      textElements.delete(this);
+      this.__attrObserver?.disconnect(); this.__attrObserver = null;
     }
   }
 
@@ -590,9 +599,12 @@
   }
 
   function refreshAll() {
-    document.querySelectorAll("loc-text").forEach(el => {
-      if (typeof el.update === "function") el.update();
-    });
+    observe(document);
+    for (const root of [...observedRoots.keys()]) {
+      if (root !== document && !root.host.isConnected) { unobserve(root); continue; }
+      scan(root);
+    }
+    for (const element of textElements) if (element.isConnected) element.update();
   }
 
   const api = {
@@ -600,15 +612,18 @@
       state.basePath = normalizePath(path);
     },
     async setLanguage(lang) {
-      state.currentLang = lang;
       const reqId = ++state.langReqId;
       const dict = await loadDictFor(lang);
       // si durante la espera cambiaron de idioma, ignora
       if (reqId !== state.langReqId) return;
+      state.currentLang = lang;
       state.dict = dict || {};
+      document.documentElement.lang = lang;
       refreshAll();
+      window.dispatchEvent?.(new CustomEvent("loc:languagechange", {detail:{language:lang}}));
     },
     refresh() { refreshAll(); },
+    observe, unobserve,
     addFormat, // plugins
     getLanguage() { return state.currentLang; },
     // t(key, fallback[, params, formats, element]) — público pero opcional
@@ -619,4 +634,5 @@
 
   // Exponer sin machacar si ya existe
   window.loc = window.loc || api;
+  observe(document);
 })();

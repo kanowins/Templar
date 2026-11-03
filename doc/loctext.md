@@ -295,7 +295,7 @@ loc.t(key: string, fallback?: string, params?: object, formats?: object, element
 ## Security Notes
 
 - The component renders the resolved string **as HTML** (`innerHTML`) so templates may contain markup.  
-  **Do not** feed untrusted data into parameters or translations. If you need strict text-only rendering, adapt the implementation to use `textContent`.
+  **Do not** feed untrusted data into parameters or translations. Use the `text` boolean attribute for strict text-only rendering through `textContent`.
 - To display **literal braces** `{` or `}` in templates, use HTML entities: `&#123;` and `&#125;`.
 
 ---
@@ -373,3 +373,34 @@ bill.total=Total: {amount|number({"minimumFractionDigits":2})|currency({"currenc
   {msg}
 </loc-text>
 ```
+
+
+## Declarative attributes and Shadow DOM
+
+Native HTML attributes are the original fallback; matching loc-* attributes hold translation keys:
+
+```html
+<input placeholder="Search systems" loc-placeholder="game.search"
+       aria-label="Search systems" loc-aria-label="game.search">
+<button title="Locate home system" loc-title="game.home">⌂</button>
+<loc-text text key="game.turn" p-turn="1">Turn {turn}</loc-text>
+```
+
+The library captures each original fallback once, before translating it. Changing languages or keys never replaces that fallback with a previous translation. Missing keys use the captured original; attributes without loc-* remain unchanged. Removing a loc-* binding restores the original attribute, including its original absence. Supported targets are title, placeholder, alt, label, value, aria-label, aria-description, aria-valuetext and data-* attributes. Event handlers, URLs, styles and arbitrary HTML are not translation targets.
+
+Attributes and loc-text share params/loc-params JSON, p-* values, data-* values and formats/loc-formats pipelines. A loc-p-NAME attribute optionally supplies the translation key for a named parameter; its message can use the same raw parameters and formats. A blank message key interpolates only the original fallback, which is useful for locale-formatted numeric values. Text-only loc-text elements use the text boolean attribute: translated strings and parameters are assigned through textContent. Existing loc-text elements retain their HTML behavior for backward compatibility.
+
+```html
+<button title="Storage: {used} / {capacity}" loc-title="game.storage"
+        loc-params='{"used":1000,"capacity":5000}'
+        loc-formats='{"used":"number","capacity":"number"}'>Storage</button>
+<span data-tooltip="{resource}: {amount}" loc-data-tooltip=""
+      loc-params='{"resource":"Metal","amount":1500}'
+      loc-p-resource="game.metal" loc-formats='{"amount":"number"}'>Metal</span>
+```
+
+Document content, inserted elements and open Shadow DOM roots are discovered automatically. Connected loc-text elements register themselves, including inside nested or closed roots. Templar Forge registers and unregisters each component root as part of its lifecycle. For a closed root containing only native attribute bindings, or a root attached after its host is already connected without any loc-text elements, call loc.observe(root) once when connecting and loc.unobserve(root) when disconnecting. These register lifecycle ownership; callers never need a language-refresh loop.
+
+loc.setLanguage(language) loads and commits the dictionary, updates document.lang and all connected text/attribute bindings, then dispatches loc:languagechange on window with detail.language. The latest requested language wins if requests complete out of order. loc.refresh() refreshes all registered roots. Language changes do not replace forms, inputs or component DOM, so focus, selections and drafts survive. Reconnected components resume updates. Detached roots and elements are released from the observer/element registries.
+
+Parameter coercion treats non-JSON brace/bracket-prefixed strings as ordinary text without warnings (for example `{star} system` or `{value0}`). Valid JSON objects/arrays still coerce normally; malformed explicit params/loc-params and formats/loc-formats keep their diagnostics. Translated data-* output attributes are not read back as source parameters.
